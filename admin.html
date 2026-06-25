@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SRWallpapers · Admin Panel Pro</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background: #06080c; color: #f3f4f6; min-height: 100vh; padding: 20px; }
+    
+    .lock-screen {
+      position: fixed; inset: 0; background: rgba(4, 7, 13, 0.96);
+      backdrop-filter: blur(14px); display: flex; justify-content: center;
+      align-items: center; z-index: 9999; flex-direction: column; gap: 20px;
+    }
+    .lock-screen h2 { font-weight: 600; font-size: 1.6rem; background: linear-gradient(135deg, #60a5fa, #2563eb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .lock-screen input { padding: 14px 20px; border-radius: 40px; border: 1px solid #2a2f3a; background: #0f141c; color: #fff; width: 280px; outline: none; font-size: 1rem; }
+    .lock-screen input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.2); }
+    .lock-screen button { background: #2563eb; border: none; padding: 12px 32px; border-radius: 40px; font-weight: 600; color: #fff; cursor: pointer; transition: 0.2s; }
+    .lock-screen button:hover { background: #1d4ed8; transform: scale(1.02); }
+    .lock-screen .error { color: #ff6b6b; font-size: 0.9rem; margin-top: -8px; }
+
+    .dashboard {
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      background: rgba(13, 18, 26, 0.7);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 32px;
+      padding: 35px;
+      box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+    }
+    
+    .brand-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+    .brand-header h1 { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #60a5fa, #2563eb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .brand-header .badge-admin { background: rgba(37,99,235,0.15); padding: 6px 16px; border-radius: 40px; font-size: 0.75rem; color: #60a5fa; border: 1px solid rgba(37,99,235,0.2); }
+    
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 12px; margin-bottom: 24px; }
+    .stat-card { background: rgba(255,255,255,0.02); padding: 16px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.04); text-align: center; }
+    .stat-card h4 { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card .number { font-size: 1.8rem; font-weight: 700; color: #60a5fa; margin-top: 4px; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 18px; }
+    .full-width { grid-column: span 2; }
+    
+    .input-box { display: flex; flex-direction: column; gap: 6px; }
+    .input-box label { font-size: 0.8rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    input[type="text"], select {
+      width: 100%; padding: 14px; background: #0f141c; color: #fff; border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08); outline: none; font-size: 0.9rem; transition: 0.2s;
+    }
+    input:focus, select:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+    
+    .file-upload-box {
+      background: #0f141c;
+      border: 2px dashed rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      cursor: pointer;
+      transition: 0.3s;
+      flex-wrap: wrap;
+    }
+    .file-upload-box:hover { border-color: #2563eb; background: rgba(37,99,235,0.02); }
+    .file-upload-box .icon-wrap { font-size: 1.8rem; color: #2563eb; }
+    .file-upload-box .info { flex: 1; }
+    .file-upload-box .info .main { font-weight: 500; color: #e2e8f0; }
+    .file-upload-box .info .sub { font-size: 0.75rem; color: #64748b; }
+    .file-upload-box .file-name { font-size: 0.8rem; color: #60a5fa; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-upload-box .browse-btn { background: #2563eb; border: none; padding: 8px 20px; border-radius: 30px; color: #fff; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: 0.2s; }
+    .file-upload-box .browse-btn:hover { background: #1d4ed8; }
+    #fileInput { display: none; }
+
+    .progress-bar { width: 100%; height: 6px; background: #1a1f2e; border-radius: 10px; margin-top: 10px; overflow: hidden; display: none; }
+    .progress-bar .fill { height: 100%; background: linear-gradient(90deg, #2563eb, #60a5fa); width: 0%; transition: width 0.3s; border-radius: 10px; }
+
+    .btn-submit {
+      width: 100%; padding: 16px; background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border: none; border-radius: 14px; color: white; font-weight: 600; font-size: 1rem;
+      cursor: pointer; transition: 0.2s; box-shadow: 0 8px 24px rgba(37,99,235,0.3);
+      display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px;
+    }
+    .btn-submit:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(37,99,235,0.4); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    #uploadStatus { text-align: center; margin-top: 15px; font-size: 0.9rem; font-weight: 500; color: #60a5fa; }
+
+    .asset-manager { margin-top: 32px; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 24px; }
+    .asset-manager .toolbar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+    .asset-manager .toolbar input { padding: 10px 16px; background: #0f141c; border: 1px solid rgba(255,255,255,0.08); border-radius: 30px; color: #fff; flex: 1; min-width: 150px; outline: none; }
+    .asset-manager .toolbar input:focus { border-color: #2563eb; }
+    .asset-manager .toolbar select { padding: 10px 16px; background: #0f141c; border: 1px solid rgba(255,255,255,0.08); border-radius: 30px; color: #fff; outline: none; cursor: pointer; }
+    .asset-manager .toolbar .btn-danger { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.2); padding: 10px 20px; border-radius: 30px; color: #ef4444; cursor: pointer; transition: 0.2s; display: none; }
+    .asset-manager .toolbar .btn-danger:hover { background: rgba(239,68,68,0.25); }
+    .asset-manager .toolbar .btn-danger.show { display: inline-flex; align-items: center; gap: 8px; }
+
+    .asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap: 16px; max-height: 500px; overflow-y: auto; padding-right: 4px; }
+    .asset-grid::-webkit-scrollbar { width: 4px; }
+    .asset-grid::-webkit-scrollbar-thumb { background: #2563eb; border-radius: 10px; }
+    .asset-item { background: #0f141c; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.03); transition: 0.2s; position: relative; }
+    .asset-item:hover { border-color: #2563eb; transform: scale(1.01); }
+    .asset-item .checkbox-wrap { position: absolute; top: 8px; left: 8px; z-index: 2; }
+    .asset-item .checkbox-wrap input[type="checkbox"] { width: 18px; height: 18px; accent-color: #2563eb; cursor: pointer; }
+    .asset-item img, .asset-item video { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; cursor: pointer; }
+    .asset-item .asset-info { padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .asset-item .asset-info .title { font-size: 0.7rem; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; flex: 1; }
+    .asset-item .asset-info .tag { font-size: 0.55rem; color: #60a5fa; background: rgba(37,99,235,0.12); padding: 2px 8px; border-radius: 20px; }
+    .asset-item .actions { display: flex; gap: 4px; }
+    .asset-item .actions button { background: rgba(255,255,255,0.04); border: none; color: #94a3b8; padding: 4px 8px; border-radius: 8px; cursor: pointer; transition: 0.2s; font-size: 0.7rem; }
+    .asset-item .actions button:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .asset-item .actions .edit-btn:hover { color: #60a5fa; }
+    .asset-item .actions .delete-btn:hover { color: #ef4444; }
+    .asset-item .premium-badge { position: absolute; top: 8px; right: 8px; background: rgba(245,158,11,0.2); color: #f59e0b; padding: 2px 8px; border-radius: 20px; font-size: 0.5rem; backdrop-filter: blur(4px); z-index: 2; }
+    .asset-item .video-badge { position: absolute; top: 8px; right: 8px; background: rgba(37,99,235,0.3); color: #60a5fa; padding: 2px 8px; border-radius: 20px; font-size: 0.5rem; backdrop-filter: blur(4px); z-index: 2; }
+    .asset-item .premium-badge + .video-badge { top: 32px; } /* Adjust stack position if both exist */
+
+    .edit-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
+    .edit-modal.show { display: flex; }
+    .edit-modal .modal-content { background: #0f141c; border-radius: 24px; padding: 30px; max-width: 500px; width: 100%; border: 1px solid rgba(255,255,255,0.04); }
+    .edit-modal .modal-content h3 { margin-bottom: 20px; color: #e2e8f0; }
+    .edit-modal .modal-content .input-box { margin-bottom: 14px; }
+    .edit-modal .modal-content .modal-actions { display: flex; gap: 12px; margin-top: 20px; }
+    .edit-modal .modal-content .modal-actions button { padding: 12px 24px; border-radius: 12px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; flex: 1; }
+    .edit-modal .modal-content .modal-actions .save-btn { background: #2563eb; color: #fff; }
+    .edit-modal .modal-content .modal-actions .save-btn:hover { background: #1d4ed8; }
+    .edit-modal .modal-content .modal-actions .cancel-btn { background: rgba(255,255,255,0.05); color: #94a3b8; }
+    .edit-modal .modal-content .modal-actions .cancel-btn:hover { background: rgba(255,255,255,0.1); }
+
+    .preview-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(30px); display: none; align-items: center; justify-content: center; z-index: 3000; padding: 20px; }
+    .preview-modal.show { display: flex; }
+    .preview-modal img, .preview-modal video { max-width: 90%; max-height: 90%; border-radius: 16px; object-fit: contain; }
+    .preview-modal .close-preview { position: absolute; top: 20px; right: 30px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 50px; height: 50px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; transition: 0.2s; }
+    .preview-modal .close-preview:hover { background: rgba(255,255,255,0.2); }
+
+    .toggle-group { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+    .toggle-group label { font-size: 0.8rem; font-weight: 500; color: #94a3b8; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+    .toggle-group input[type="checkbox"] { width: 18px; height: 18px; accent-color: #2563eb; cursor: pointer; }
+
+    .nav-link { display: block; text-align: center; margin-top: 22px; font-size: 0.85rem; color: #64748b; text-decoration: none; transition: 0.2s; }
+    .nav-link:hover { color: #f3f4f6; }
+
+    .empty-state { color: #64748b; padding: 40px 16px; text-align: center; grid-column: 1/-1; }
+    .empty-state i { font-size: 2.5rem; margin-bottom: 12px; display: block; opacity: 0.3; }
+
+    @media (max-width: 768px) {
+      .dashboard { padding: 20px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .full-width { grid-column: 1; }
+      .asset-grid { grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); }
+      .file-upload-box { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="lock-screen" id="lockScreen">
+  <h2><i class="fas fa-lock"></i> Admin Access</h2>
+  <input type="password" id="passwordInput" placeholder="Enter password" />
+  <button id="unlockBtn">Unlock Panel</button>
+  <p class="error" id="lockError"></p>
+</div>
+
+<div class="dashboard" id="dashboardPanel" style="display: none;">
+  <div class="brand-header">
+    <h1><i class="fas fa-crown"></i> SRWallpapers · Admin Pro</h1>
+    <span class="badge-admin"><i class="fas fa-shield-alt"></i> Admin</span>
+  </div>
+
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card"><h4>Total Wallpapers</h4><div class="number" id="totalCount">0</div></div>
+    <div class="stat-card"><h4>Total Downloads</h4><div class="number" id="totalDownloads">0</div></div>
+    <div class="stat-card"><h4>Premium</h4><div class="number" id="premiumCount">0</div></div>
+    <div class="stat-card"><h4>Free</h4><div class="number" id="freeCount">0</div></div>
+  </div>
+  
+  <div class="form-grid">
+    <div class="input-box full-width">
+      <label>Select Asset (Image or Video)</label>
+      <div class="file-upload-box" id="fileUploadBox">
+        <div class="icon-wrap"><i class="fas fa-cloud-upload-alt"></i></div>
+        <div class="info">
+          <div class="main" id="fileNameDisplay">Choose an image or video file</div>
+          <div class="sub">PNG, JPG, WEBP, MP4 up to 10MB</div>
+        </div>
+        <button class="browse-btn" id="browseBtn"><i class="fas fa-folder-open"></i> Browse</button>
+        <input type="file" id="fileInput" accept="image/*,video/mp4,video/webm" />
+      </div>
+      <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
+    </div>
+
+    <div class="input-box full-width">
+      <label>Wallpaper Title</label>
+      <input type="text" id="titleInput" placeholder="e.g., Cyberpunk Neon City" />
+    </div>
+
+    <div class="input-box">
+      <label>Collection / Category</label>
+      <select id="categorySelect">
+        <option value="latest">Latest Feed</option>
+        <option value="trending">🔥 Trending</option>
+      </select>
+    </div>
+
+    <div class="input-box">
+      <label>Tag (Filter Key)</label>
+      <select id="tagSelect">
+        <option value="Nature">🌿 Nature</option>
+        <option value="Anime">🎌 Anime</option>
+        <option value="Cars">🏎️ Cars</option>
+        <option value="Gaming">🎮 Gaming</option>
+        <option value="Space">🚀 Space</option>
+        <option value="Sports">⚽ Sports</option>
+        <option value="Technology">💻 Technology</option>
+        <option value="Animals">🐾 Animals</option>
+        <option value="Art & Design">🎨 Art & Design</option>
+        <option value="Travel">✈️ Travel</option>
+        <option value="Food">🍕 Food</option>
+        <option value="Architecture">🏛️ Architecture</option>
+        <option value="Fashion">👗 Fashion</option>
+        <option value="Music">🎵 Music</option>
+        <option value="Movies">🎬 Movies</option>
+        <option value="Health & Fitness">💪 Health & Fitness</option>
+      </select>
+    </div>
+
+    <div class="input-box">
+      <label>Resolution</label>
+      <input type="text" id="resolutionInput" value="4K Ultra HD" placeholder="e.g., Live MP4 / 4K Ultra HD" />
+    </div>
+
+    <div class="input-box">
+      <label>Access Type</label>
+      <select id="premiumSelect">
+        <option value="false">Free Access</option>
+        <option value="true">👑 Premium Pro</option>
+      </select>
+    </div>
+
+    <div class="input-box full-width">
+      <div class="toggle-group">
+        <label>
+          <input type="checkbox" id="hideTitleCheck" checked />
+          Hide Title & Resolution on Cards
+        </label>
+        <span style="font-size:0.7rem;color:#64748b;">(Only image/video will be visible in gallery)</span>
+      </div>
+    </div>
+  </div>
+
+  <button id="uploadBtn" class="btn-submit"><i class="fas fa-cloud-upload-alt"></i> Upload to Cloudinary</button>
+  <p id="uploadStatus"></p>
+
+  <div class="asset-manager">
+    <h3><i class="fas fa-image"></i> Manage Live Assets</h3>
+    <div class="toolbar">
+      <input type="text" id="assetSearch" placeholder="🔍 Search wallpapers..." />
+      <select id="sortSelect">
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+        <option value="downloads">Most Downloads</option>
+      </select>
+      <button class="btn-danger" id="batchDeleteBtn"><i class="fas fa-trash-can"></i> Delete Selected (<span id="selectedCount">0</span>)</button>
+    </div>
+    <div class="asset-grid" id="assetGrid"></div>
+  </div>
+
+  <a href="javascript:void(0)" onclick="window.location.href='index.html'" class="nav-link"><i class="fas fa-arrow-left"></i> View Live Website</a>
+</div>
+
+<div class="edit-modal" id="editModal">
+  <div class="modal-content">
+    <h3><i class="fas fa-pen-to-square"></i> Edit Wallpaper</h3>
+    <div class="input-box">
+      <label>Title</label>
+      <input type="text" id="editTitle" />
+    </div>
+    <div class="input-box">
+      <label>Category</label>
+      <select id="editCategory">
+        <option value="latest">Latest Feed</option>
+        <option value="trending">🔥 Trending</option>
+      </select>
+    </div>
+    <div class="input-box">
+      <label>Tag</label>
+      <select id="editTag">
+        <option value="Nature">🌿 Nature</option>
+        <option value="Anime">🎌 Anime</option>
+        <option value="Cars">🏎️ Cars</option>
+        <option value="Gaming">🎮 Gaming</option>
+        <option value="Space">🚀 Space</option>
+        <option value="Sports">⚽ Sports</option>
+        <option value="Technology">💻 Technology</option>
+        <option value="Animals">🐾 Animals</option>
+        <option value="Art & Design">🎨 Art & Design</option>
+        <option value="Travel">✈️ Travel</option>
+        <option value="Food">🍕 Food</option>
+        <option value="Architecture">🏛️ Architecture</option>
+        <option value="Fashion">👗 Fashion</option>
+        <option value="Music">🎵 Music</option>
+        <option value="Movies">🎬 Movies</option>
+        <option value="Health & Fitness">💪 Health & Fitness</option>
+      </select>
+    </div>
+    <div class="input-box">
+      <label>Resolution</label>
+      <input type="text" id="editResolution" />
+    </div>
+    <div class="input-box">
+      <label>Premium</label>
+      <select id="editPremium">
+        <option value="false">Free</option>
+        <option value="true">Premium</option>
+      </select>
+    </div>
+    <div class="input-box">
+      <label>Wallpaper Type</label>
+      <select id="editIsLive">
+        <option value="false">Static Image</option>
+        <option value="true">🎥 Live Wallpaper (Video)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="save-btn" id="editSaveBtn">💾 Save Changes</button>
+      <button class="cancel-btn" id="editCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="preview-modal" id="previewModal">
+  <button class="close-preview" id="closePreview"><i class="fas fa-times"></i></button>
+  <div id="previewContainer" style="width:100%; height:100%; display:flex; justify-content:center; align-items:center;"></div>
+</div>
+
+<script>
+  // ===== LOCK SCREEN (NON-MODULE) =====
+  const lockScreen = document.getElementById('lockScreen');
+  const dashboardPanel = document.getElementById('dashboardPanel');
+  const passwordInput = document.getElementById('passwordInput');
+  const unlockBtn = document.getElementById('unlockBtn');
+  const lockError = document.getElementById('lockError');
+  const ADMIN_PASSWORD = "sourovxray";
+
+  function unlockPanel() {
+    if (passwordInput.value === ADMIN_PASSWORD) {
+      lockScreen.style.display = 'none';
+      dashboardPanel.style.display = 'block';
+      lockError.innerText = '';
+      if (typeof loadAssets === 'function') {
+        loadAssets();
+      }
+    } else {
+      lockError.innerText = '❌ Incorrect password. Try again.';
+      passwordInput.value = '';
+    }
+  }
+
+  unlockBtn.addEventListener('click', unlockPanel);
+  passwordInput.addEventListener('keydown', function(e) { 
+    if (e.key === 'Enter') unlockPanel(); 
+  });
+
+  // ===== MAIN MODULE =====
+  (async function() {
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js");
+    const { getDatabase, ref, push, set, onValue, remove, update } = await import("https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js");
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCuqFQSt-lkSzBgUS06v9YtR_jLu9Ms5Gg",
+      authDomain: "wallpaper-f618c.firebaseapp.com",
+      databaseURL: "https://wallpaper-f618c-default-rtdb.firebaseio.com",
+      projectId: "wallpaper-f618c",
+      storageBucket: "wallpaper-f618c.firebasestorage.app",
+      messagingSenderId: "734224666313",
+      appId: "1:734224666313:web:f27acf05e6471abcadc718"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const CLOUDINARY_CLOUD_NAME = "mzpqfabi";
+    const CLOUDINARY_UPLOAD_PRESET = "wallpaper_preset";
+
+    // File Upload References
+    const fileInput = document.getElementById('fileInput');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const browseBtn = document.getElementById('browseBtn');
+    const fileUploadBox = document.getElementById('fileUploadBox');
+
+    browseBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      fileInput.click();
+    });
+
+    fileUploadBox.addEventListener('click', function() {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function() {
+      if(this.files.length > 0) {
+        const file = this.files[0];
+        const isVideo = file.type.startsWith('video/');
+        const prefix = isVideo ? '🎥 [LIVE] ' : '📷 [STATIC] ';
+        fileNameDisplay.innerHTML = prefix + file.name + ' (' + (file.size/1024/1024).toFixed(2) + ' MB)';
+        fileNameDisplay.style.color = '#60a5fa';
+        
+        // Auto update resolution field if it's a live video and defaults to 4K
+        const resInput = document.getElementById('resolutionInput');
+        if (isVideo && resInput.value === "4K Ultra HD") {
+          resInput.value = "Live Motion Video";
+        }
+      }
+    });
+
+    // Upload Action
+    document.getElementById('uploadBtn').addEventListener('click', async function() {
+      const title = document.getElementById('titleInput').value.trim() || "Premium Asset";
+      const category = document.getElementById('categorySelect').value;
+      const tag = document.getElementById('tagSelect').value;
+      const resolution = document.getElementById('resolutionInput').value.trim() || "4K Ultra HD";
+      const isPremium = document.getElementById('premiumSelect').value === "true";
+      const hideTitle = document.getElementById('hideTitleCheck').checked;
+      const statusText = document.getElementById('uploadStatus');
+      const progressBar = document.getElementById('progressBar');
+      const progressFill = document.getElementById('progressFill');
+      const uploadBtn = this;
+
+      if (fileInput.files.length === 0) {
+        statusText.innerText = "❌ Please select a file first!";
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const isLive = file.type.startsWith('video/') || file.name.endsWith('.mp4');
+
+      uploadBtn.disabled = true;
+      progressBar.style.display = 'block';
+      progressFill.style.width = '0%';
+      statusText.innerHTML = "⏳ Uploading to Cloudinary...";
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+      try {
+        const xhr = new XMLHttpRequest();
+        const uploadPromise = new Promise((resolve, reject) => {
+          xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/auto/upload');
+          xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+              progressFill.style.width = (e.loaded / e.total) * 100 + '%';
+            }
+          });
+          xhr.onload = function() {
+            if (xhr.status === 200) {
+              resolve(JSON.parse(xhr.responseText));
+            } else {
+              reject(new Error('Upload failed status: ' + xhr.status));
+            }
+          };
+          xhr.onerror = function() {
+            reject(new Error('Network error during upload.'));
+          };
+          xhr.send(formData);
+        });
+
+        const cloudinaryData = await uploadPromise;
+        if (cloudinaryData.secure_url) {
+          progressFill.style.width = '100%';
+          statusText.innerHTML = "⚡ Saving to Firebase...";
+          
+          const wallpapersRef = ref(db, 'wallpapers');
+          const newWallpaperRef = push(wallpapersRef);
+          
+          // Image হলে q_auto,f_auto অপ্টিমাইজেশন লিংক জেনারেট হবে। ভিডিওর ক্ষেত্রে secure_url সরাসরি বসবে।
+          let optimizedUrl = cloudinaryData.secure_url;
+          if (!isLive) {
+            optimizedUrl = cloudinaryData.secure_url.replace('/upload/', '/upload/q_auto,f_auto/');
+          }
+
+          await set(newWallpaperRef, {
+            title: title,
+            imageUrl: optimizedUrl,
+            category: category,
+            tag: tag,
+            resolution: resolution,
+            isPremium: isPremium,
+            isLive: isLive,
+            hideTitle: hideTitle,
+            downloads: Math.floor(Math.random() * 200) + 50,
+            createdAt: Date.now()
+          });
+
+          statusText.innerHTML = "🎉 Published Live Successfully!";
+          document.getElementById('titleInput').value = "";
+          fileInput.value = ""; 
+          fileNameDisplay.innerHTML = 'Choose an image or video file';
+          fileNameDisplay.style.color = '#e2e8f0';
+          document.getElementById('resolutionInput').value = "4K Ultra HD";
+        } else {
+          statusText.innerHTML = "❌ Cloudinary Error!";
+        }
+      } catch (error) {
+        statusText.innerHTML = "❌ Error: " + error.message;
+      } finally {
+        uploadBtn.disabled = false;
+        setTimeout(function() {
+          progressBar.style.display = 'none';
+          progressFill.style.width = '0%';
+        }, 3000);
+      }
+    });
+
+    // Asset Management State
+    let allAssets = [];
+    let selectedAssets = new Set();
+    let editingId = null;
+
+    const assetGrid = document.getElementById('assetGrid');
+    const assetSearch = document.getElementById('assetSearch');
+    const sortSelect = document.getElementById('sortSelect');
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    const selectedCount = document.getElementById('selectedCount');
+
+    function updateStats(data) {
+      const entries = Object.values(data || {});
+      document.getElementById('totalCount').textContent = entries.length;
+      document.getElementById('totalDownloads').textContent = entries.reduce(function(sum, i) { 
+        return sum + (i.downloads || 0); 
+      }, 0);
+      document.getElementById('premiumCount').textContent = entries.filter(function(i) { return i.isPremium; }).length;
+      document.getElementById('freeCount').textContent = entries.filter(function(i) { return !i.isPremium; }).length;
+    }
+
+    function renderAssets(data) {
+      if (!data) {
+        assetGrid.innerHTML = '<div class="empty-state"><i class="fas fa-image"></i> No assets uploaded yet.</div>';
+        return;
+      }
+      allAssets = Object.entries(data).map(function([id, item]) { 
+        return { id: id, ...item }; 
+      });
+      
+      const search = assetSearch.value.toLowerCase().trim();
+      let filtered = allAssets.filter(function(item) {
+        return (item.title && item.title.toLowerCase().includes(search)) || 
+               (item.tag && item.tag.toLowerCase().includes(search));
+      });
+
+      switch(sortSelect.value) {
+        case 'oldest': filtered.sort(function(a,b) { return (a.createdAt || 0) - (b.createdAt || 0); }); break;
+        case 'downloads': filtered.sort(function(a,b) { return (b.downloads || 0) - (a.downloads || 0); }); break;
+        default: filtered.sort(function(a,b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+      }
+
+      if (!filtered.length) {
+        assetGrid.innerHTML = '<div class="empty-state"><i class="fas fa-search"></i> No results found.</div>';
+        return;
+      }
+
+      assetGrid.innerHTML = filtered.map(function(item) {
+        const checked = selectedAssets.has(item.id) ? 'checked' : '';
+        const isLiveWallpaper = item.isLive === true || item.imageUrl.endsWith('.mp4');
+        
+        // Media Preview Template
+        const mediaElement = isLiveWallpaper 
+          ? `<video src="${item.imageUrl}" autoplay loop muted playsinline onclick="previewAsset('${item.imageUrl}', true)"></video>`
+          : `<img src="${item.imageUrl}" alt="${item.title}" loading="lazy" onclick="previewAsset('${item.imageUrl}', false)" />`;
+
+        return `
+          <div class="asset-item" data-id="${item.id}">
+            <div class="checkbox-wrap">
+              <input type="checkbox" class="asset-checkbox" data-id="${item.id}" ${checked} />
+            </div>
+            ${item.isPremium ? '<span class="premium-badge">👑 PRO</span>' : ''}
+            ${isLiveWallpaper ? '<span class="video-badge"><i class="fas fa-video"></i> LIVE</span>' : ''}
+            ${mediaElement}
+            <div class="asset-info">
+              <span class="title">${item.title || 'Untitled'}</span>
+              <span class="tag">${item.tag || 'Untagged'}</span>
+              <div class="actions">
+                <button class="edit-btn" onclick="openEdit('${item.id}')"><i class="fas fa-pen"></i></button>
+                <button class="delete-btn" onclick="deleteSingle('${item.id}')"><i class="fas fa-trash"></i></button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.querySelectorAll('.asset-checkbox').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+          const id = this.dataset.id;
+          if (this.checked) selectedAssets.add(id);
+          else selectedAssets.delete(id);
+          updateBatchDeleteBtn();
+        });
+      });
+
+      updateBatchDeleteBtn();
+    }
+
+    function updateBatchDeleteBtn() {
+      const count = selectedAssets.size;
+      selectedCount.textContent = count;
+      if (count > 0) {
+        batchDeleteBtn.classList.add('show');
+      } else {
+        batchDeleteBtn.classList.remove('show');
+      }
+    }
+
+    window.openEdit = function(id) {
+      const item = allAssets.find(function(a) { return a.id === id; });
+      if (!item) return;
+      editingId = id;
+      document.getElementById('editTitle').value = item.title || '';
+      document.getElementById('editCategory').value = item.category || 'latest';
+      document.getElementById('editTag').value = item.tag || 'Nature';
+      document.getElementById('editResolution').value = item.resolution || '4K Ultra HD';
+      document.getElementById('editPremium').value = item.isPremium ? 'true' : 'false';
+      document.getElementById('editIsLive').value = (item.isLive === true || item.imageUrl.endsWith('.mp4')) ? 'true' : 'false';
+      document.getElementById('editModal').classList.add('show');
+    };
+
+    window.previewAsset = function(url, isVideo) {
+      const container = document.getElementById('previewContainer');
+      if (isVideo) {
+        container.innerHTML = `<video src="${url}" autoplay loop controls style="max-width: 90%; max-height: 90%; border-radius: 16px;"></video>`;
+      } else {
+        container.innerHTML = `<img src="${url}" alt="Preview" style="max-width: 90%; max-height: 90%; border-radius: 16px; object-fit: contain;" />`;
+      }
+      document.getElementById('previewModal').classList.add('show');
+    };
+
+    window.deleteSingle = function(id) {
+      if (confirm('Delete this wallpaper permanently?')) {
+        remove(ref(db, 'wallpapers/' + id));
+        showToast('🗑️ Asset deleted.');
+      }
+    };
+
+    batchDeleteBtn.addEventListener('click', function() {
+      if (!selectedAssets.size) return;
+      if (confirm('Delete ' + selectedAssets.size + ' wallpapers permanently?')) {
+        const count = selectedAssets.size;
+        selectedAssets.forEach(function(id) {
+          remove(ref(db, 'wallpapers/' + id));
+        });
+        selectedAssets.clear();
+        updateBatchDeleteBtn();
+        showToast('🗑️ ' + count + ' assets deleted.');
+      }
+    });
+
+    document.getElementById('editSaveBtn').addEventListener('click', async function() {
+      if (!editingId) return;
+      const updates = {
+        title: document.getElementById('editTitle').value.trim() || 'Untitled',
+        category: document.getElementById('editCategory').value,
+        tag: document.getElementById('editTag').value,
+        resolution: document.getElementById('editResolution').value.trim() || '4K Ultra HD',
+        isPremium: document.getElementById('editPremium').value === 'true',
+        isLive: document.getElementById('editIsLive').value === 'true'
+      };
+      try {
+        await update(ref(db, 'wallpapers/' + editingId), updates);
+        document.getElementById('editModal').classList.remove('show');
+        showToast('✅ Updated successfully!');
+      } catch (err) {
+        showToast('❌ Update failed: ' + err.message);
+      }
+    });
+
+    document.getElementById('editCancelBtn').addEventListener('click', function() {
+      document.getElementById('editModal').classList.remove('show');
+    });
+
+    document.getElementById('closePreview').addEventListener('click', function() {
+      const container = document.getElementById('previewContainer');
+      const video = container.querySelector('video');
+      if (video) video.pause(); // Stop reproduction background on close
+      document.getElementById('previewModal').classList.remove('show');
+    });
+    
+    document.getElementById('previewModal').addEventListener('click', function(e) {
+      if (e.target === this || e.target === document.getElementById('previewContainer')) {
+        const video = this.querySelector('video');
+        if (video) video.pause();
+        this.classList.remove('show');
+      }
+    });
+
+    assetSearch.addEventListener('input', function() {
+      const data = allAssets.reduce(function(acc, item) { 
+        acc[item.id] = item; 
+        return acc; 
+      }, {});
+      renderAssets(data);
+    });
+    
+    sortSelect.addEventListener('change', function() {
+      const data = allAssets.reduce(function(acc, item) { 
+        acc[item.id] = item; 
+        return acc; 
+      }, {});
+      renderAssets(data);
+    });
+
+    function showToast(msg) {
+      const status = document.getElementById('uploadStatus');
+      status.innerHTML = msg;
+      clearTimeout(status._hide);
+      status._hide = setTimeout(function() { 
+        status.innerHTML = ''; 
+      }, 3000);
+    }
+
+    window.loadAssets = function() {
+      const wallpapersRef = ref(db, 'wallpapers');
+      onValue(wallpapersRef, function(snapshot) {
+        const data = snapshot.val();
+        updateStats(data);
+        renderAssets(data);
+      });
+    };
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        document.getElementById('editModal').classList.remove('show');
+        const previewModal = document.getElementById('previewModal');
+        const video = previewModal.querySelector('video');
+        if (video) video.pause();
+        previewModal.classList.remove('show');
+      }
+    });
+
+    if (dashboardPanel.style.display !== 'none') {
+      loadAssets();
+    }
+
+    // Global exports
+    window.openEdit = openEdit;
+    window.previewAsset = previewAsset;
+    window.deleteSingle = deleteSingle;
+    window.loadAssets = loadAssets;
+
+  })();
+</script>
+</body>
+</html>
