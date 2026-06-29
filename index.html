@@ -1,106 +1,105 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SRWallpapers · Premium HD & 4K</title>
-  <meta name="description" content="Download stunning HD & 4K wallpapers for free. Curated collection of Nature, Anime, Gaming, Cars, Space & more." />
+  <meta name="description" content="Download stunning HD & 4K wallpapers for free." />
   <link rel="canonical" href="https://srwallpapers.web.app" />
-  <meta property="og:title" content="SRWallpapers - Premium HD & 4K Wallpapers" />
-  <meta property="og:description" content="Download stunning HD & 4K wallpapers for free." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://srwallpapers.web.app" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <link rel="icon" type="image/png" href="https://img.icons8.com/fluency/48/crown.png" />
-  
+  <link rel="icon" type="image/png" href="images/logo.png" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="assets/css/style.css" />
 </head>
 <body>
 
-<nav class="navbar">
-  <div class="logo"><i class="fas fa-crown"></i> SRWallpapers</div>
-  <div class="nav-links">
-    <a onclick="showSection('home')">Home</a>
-    <a onclick="showSection('categories')">Categories</a>
-    <a onclick="showSection('trending')">Trending</a>
-    <a onclick="showSection('favorites')" id="favoritesNavLink" style="display:none;">Favorites</a>
+  <nav class="navbar">
+    <div class="logo"><i class="fas fa-crown"></i> SRWallpapers</div>
+    <div class="nav-actions">
+      <i class="fas fa-moon" id="themeToggle"></i>
+    </div>
+  </nav>
+
+  <div id="homePage">
+    <h2 class="section-title">🔥 <span>Trending</span> Wallpapers</h2>
+    <div class="masonry" id="trendingGrid"></div>
+
+    <h2 class="section-title">🆕 <span>Latest</span> Wallpapers</h2>
+    <div class="masonry" id="latestGrid"></div>
   </div>
-  <div class="nav-actions">
-    <i class="fas fa-moon" id="themeToggle"></i>
-    <div id="authSection"></div>
+
+  <div id="favoritesPage" style="display: none;">
+    <h2 class="section-title">❤️ <span>Your</span> Favorites</h2>
+    <div class="masonry" id="favoritesGrid"></div>
   </div>
-</nav>
 
-<div class="search-bar-container">
-  <div class="search-wrap">
-    <input type="text" id="globalSearch" placeholder="Search wallpapers by title or category..." />
-    <button onclick="performSearch()"><i class="fas fa-arrow-right"></i> Explore</button>
+  <div class="search-popup" id="searchPopup">
+    <div class="search-header">
+      <div class="search-box">
+        <i class="fas fa-search" style="color: #64748b;"></i>
+        <input type="text" id="popupSearchInput" placeholder="Search premium wallpapers..." />
+      </div>
+      <button class="close-search" id="closeSearchBtn"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="masonry" id="searchResultGrid" style="flex: 1; overflow-y: auto;">
+      <div class="empty-state"><i class="fas fa-search"></i> Type something to discover wallpapers...</div>
+    </div>
   </div>
-</div>
 
-<h2 class="section-title">📂 <span>Categories</span></h2>
-<div class="category-grid" id="categoryGrid"></div>
-
-<h2 class="section-title">🔥 <span>Trending</span></h2>
-<div class="masonry" id="trendingGrid"></div>
-
-<h2 class="section-title">🆕 <span>Latest</span> Drops</h2>
-<div class="masonry" id="latestGrid"></div>
-
-<div id="favoritesSection" style="display:none;">
-  <h2 class="section-title">❤️ <span>Your</span> Favorites</h2>
-  <div class="masonry" id="favoritesGrid">
-    <div class="empty-state"><i class="fas fa-heart"></i> No favorites yet. Start saving!</div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modalOverlay">
-  <div class="modal-content">
-    <button class="modal-close" id="modalClose"><i class="fas fa-times"></i></button>
-    <img src="" id="modalImg" style="display: none;" />
-    <video id="modalVideo" autoplay loop muted playsinline style="display: none; width: 100%; aspect-ratio: 2/3; object-fit: cover;"></video>
-    
-    <div class="modal-body">
-      <h3 id="modalTitle">Wallpaper</h3>
-      <p class="res" id="modalRes">4K Ultra HD</p>
-      <div class="modal-actions">
-        <button class="btn btn-primary" id="modalDownload"><i class="fas fa-download"></i> Download</button>
-        <button class="btn btn-secondary" id="modalShare"><i class="fas fa-share-nodes"></i> Share</button>
-        <button class="btn btn-secondary" id="modalFavorite"><i class="fas fa-heart"></i> Favorite</button>
+  <!-- ===== DETAIL MODAL ===== -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-content">
+      <button class="modal-close" id="modalClose"><i class="fas fa-times"></i></button>
+      <img src="" id="modalImg" style="display:none;" />
+      <video id="modalVideo" autoplay loop muted playsinline style="display:none;"></video>
+      <div class="modal-body">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 id="modalTitle">Wallpaper</h3>
+          <span id="modalPremiumBadge" style="display:none; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; padding:2px 12px; border-radius:20px; font-size:0.6rem; font-weight:700;">👑 Premium</span>
+        </div>
+        <p class="res-text" id="modalRes">4K Ultra HD</p>
+        <div style="display:flex; gap:8px; margin-top:4px; flex-wrap:wrap;">
+          <span id="modalTag" style="background:rgba(37,99,235,0.1); color:#60a5fa; padding:2px 12px; border-radius:12px; font-size:0.65rem;"></span>
+          <span id="modalDownloads" style="color:#94a3b8; font-size:0.65rem;"><i class="fas fa-download"></i> 0 downloads</span>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="modalDownload"><i class="fas fa-download"></i> Download</button>
+          <button class="btn btn-secondary" id="modalFavorite"><i class="fas fa-heart"></i> Favorite</button>
+          <button class="btn btn-share" id="modalShare"><i class="fas fa-share-alt"></i></button>
+        </div>
+        <div id="premiumUpgradeNotice" style="display:none; margin-top:12px; padding:12px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.2); border-radius:16px; text-align:center;">
+          <p style="font-size:0.8rem; color:#f59e0b;"><i class="fas fa-crown"></i> This is a Premium wallpaper. Upgrade to download!</p>
+          <button class="btn btn-premium-upgrade" id="modalUpgradeBtn" style="margin-top:8px; width:100%;">👑 Upgrade to Premium</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<div class="modal-overlay profile-modal" id="profileModal">
-  <div class="modal-content">
-    <img id="profileImg" src="" alt="Profile" />
-    <h2 id="profileName">User</h2>
-    <p class="email" id="profileEmail">user@example.com</p>
-    <p id="profileUid" style="font-size:0.7rem;color:#64748b;margin-top:4px;"></p>
-    <button class="close-btn" onclick="document.getElementById('profileModal').classList.remove('show')">Close</button>
+  <!-- ===== PROFILE MODAL ===== -->
+  <div class="modal-overlay" id="profileModal">
+    <div class="glass-panel">
+      <button class="modal-close" onclick="document.getElementById('profileModal').classList.remove('show')"><i class="fas fa-times"></i></button>
+      <div id="profileAuthContainer"></div>
+    </div>
   </div>
-</div>
 
-<footer class="footer-clean">
-  <p>&copy; 2026 SRWallpapers. All rights reserved.</p>
-  <span>Crafted with ❤️ by <a href="https://t.me/sourov_ray" target="_blank">SoURoV RaY</a></span>
-</footer>
+  <footer style="text-align:center; padding:30px 20px 20px; font-size:0.75rem; color:#64748b; border-top:1px solid rgba(255,255,255,0.02)">
+       <div class="text-alien-center">
+    <p>&copy; 2026 SRWallpapers. All rights reserved.</p>
+    <span>Crafted with ❤️ by <a href="#">SoURoV RaY</a></span>
+  </div>
+    </footer>
 
-<div class="bottom-nav">
-  <a onclick="showSection('home')" class="active"><i class="fas fa-home"></i> Home</a>
-  <a onclick="document.getElementById('globalSearch').focus()"><i class="fas fa-search"></i> Search</a>
-  <a onclick="showSection('categories')"><i class="fas fa-th-large"></i> Categories</a>
-  <a onclick="showSection('favorites')" id="bottomFavoritesLink" style="display:none;"><i class="fas fa-heart"></i> Favorites</a>
-  <a onclick="showSection('profile')"><i class="fas fa-user"></i> Profile</a>
-</div>
+  <div class="bottom-nav">
+    <a id="navHome" class="active"><i class="fas fa-th-large"></i><span>Home</span></a>
+    <a id="navSearch"><i class="fas fa-search"></i><span>Search</span></a>
+    <a id="navFavs"><i class="fas fa-heart"></i><span>Favorites</span></a>
+    <a id="navProfile"><i class="fas fa-user-astronaut"></i><span>Profile</span></a>
+  </div>
 
-<div class="toast" id="toast"></div>
-<button class="scroll-top" id="scrollTop"><i class="fas fa-arrow-up"></i></button>
+  <div class="toast" id="toast"></div>
 
-<script type="module" src="script.js"></script>
+  <script type="module" src="assets/js/firebase-config.js"></script>
+  <script type="module" src="assets/js/main.js"></script>
 </body>
 </html>
