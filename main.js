@@ -1,543 +1,465 @@
+// ============================================================
+// 🔌 FIREBASE CONFIG IMPORT (Using your local config file)
+// ============================================================
 import { db, auth, provider } from './firebase-config.js';
-import { ref, onValue, set, remove, push } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
+import { ref, onValue, set, push, update, remove } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
 import { signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
-let currentUser = null;
-let currentUserData = null;
-let allData = {};
-let userFavorites = {};
-let userDownloads = {};
-let activeUrl = '', activeId = '';
-let activeItem = null;
-let selectedMethod = 'bkash';
+// ============================================================
+// 🔑 ADMIN UID
+// ============================================================
+const ADMIN_UID = "kP7A29SA8tb84GhcdLyvNudf30M2"; 
 
-// ===== TABS =====
-const homePage = document.getElementById('homePage');
-const favoritesPage = document.getElementById('favoritesPage');
-const searchPopup = document.getElementById('searchPopup');
-const profileModal = document.getElementById('profileModal');
+// ============================================================
+// ☁️ CLOUDINARY CONFIG
+// ============================================================
+const CLOUDINARY_CLOUD_NAME = "mzpqfabi";
+const CLOUDINARY_UPLOAD_PRESET = "wallpaper_preset";
 
-function resetTabs() {
-  document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
-}
+// ============================================================
+// DOM REFS
+// ============================================================
+const loginPage = document.getElementById('loginPage');
+const adminPanel = document.getElementById('adminPanel');
+const googleLoginBtn = document.getElementById('googleLoginBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const loginError = document.getElementById('loginError');
+const loginLoading = document.getElementById('loginLoading');
+const userEmail = document.getElementById('userEmail');
+const userAvatar = document.getElementById('userAvatar');
 
-document.getElementById('navHome').addEventListener('click', function() {
-  resetTabs(); this.classList.add('active');
-  homePage.style.display = 'block';
-  favoritesPage.style.display = 'none';
+let allWallpapers = [];
+let selectedIds = new Set();
+let editingId = null;
+let allPayments = [];
+
+// ============================================================
+// AUTH STATE CONTROL
+// ============================================================
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    console.log("Logged in:", user.uid);
+    if (user.uid === ADMIN_UID) {
+      loginPage.style.display = 'none';
+      adminPanel.style.display = 'block';
+      userEmail.textContent = user.email;
+      userAvatar.src = user.photoURL || 'https://ui-avatars.com/api/?name=Admin';
+      loginError.textContent = '';
+      loginLoading.style.display = 'none';
+      initAdminPanel();
+    } else {
+      loginError.textContent = '❌ You are not authorized to access this panel.';
+      loginLoading.style.display = 'none';
+      signOut(auth);
+    }
+  } else {
+    loginPage.style.display = 'block';
+    adminPanel.style.display = 'none';
+    loginLoading.style.display = 'none';
+  }
 });
 
-document.getElementById('navSearch').addEventListener('click', function() {
-  searchPopup.classList.add('show');
-  document.getElementById('popupSearchInput').focus();
+// ===== GOOGLE LOGIN =====
+googleLoginBtn.addEventListener('click', async () => {
+  loginLoading.style.display = 'block';
+  loginError.textContent = '';
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error) {
+    loginError.textContent = '❌ ' + error.message;
+    loginLoading.style.display = 'none';
+  }
 });
 
-document.getElementById('closeSearchBtn').addEventListener('click', () => searchPopup.classList.remove('show'));
-
-document.getElementById('navFavs').addEventListener('click', function() {
-  resetTabs(); this.classList.add('active');
-  homePage.style.display = 'none';
-  favoritesPage.style.display = 'block';
-  renderFavorites();
+// ===== LOGOUT =====
+logoutBtn.addEventListener('click', () => {
+  signOut(auth);
+  loginPage.style.display = 'block';
+  adminPanel.style.display = 'none';
 });
 
-document.getElementById('navProfile').addEventListener('click', function() {
-  profileModal.classList.add('show');
-});
+// ============================================================
+// MAIN ADMIN PANEL FUNCTIONS
+// ============================================================
+function initAdminPanel() {
+  // ===== TABS SYSTEM =====
+  document.querySelectorAll('.admin-tabs button').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.admin-tabs button').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      const tab = this.dataset.tab;
+      document.getElementById('tabWallpapers').style.display = tab === 'wallpapers' ? 'block' : 'none';
+      document.getElementById('tabPayments').style.display = tab === 'payments' ? 'block' : 'none';
+      document.getElementById('tabUpload').style.display = tab === 'upload' ? 'block' : 'none';
+    });
+  });
 
-// ===== CARD BUILDER =====
-function createCardMarkup(item, id) {
-  const isLive = item.imageUrl?.endsWith('.mp4') || item.isLive === true;
-  const thumb = isLive ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500' : item.imageUrl;
-  const downloads = item.downloads || 0;
-  const isPremium = item.isPremium === true;
-  
-  return `
-    <div class="card" data-id="${id}" data-url="${item.imageUrl}" data-title="${item.title || 'Untitled'}" 
-         data-res="${item.resolution || '4K Ultra HD'}" data-tag="${item.tag || 'Nature'}" 
-         data-downloads="${downloads}" data-islive="${isLive}" data-premium="${isPremium}">
-      ${isLive ? '<div class="video-badge"><i class="fas fa-video"></i> Live</div>' : ''}
-      ${isPremium ? '<div class="premium-badge-card">👑 Premium</div>' : ''}
-      <div class="download-badge"><i class="fas fa-download"></i> ${downloads}</div>
-      <img src="${thumb}" alt="${item.title || 'Wallpaper'}" loading="lazy" />
-      ${isPremium ? `
-        <div class="premium-lock-overlay">
-          <i class="fas fa-crown"></i>
-          <span>Premium Content</span>
+  // ===== LOAD DATA =====
+  loadWallpapers();
+  loadPayments();
+
+  // ===== DATA FETCHERS =====
+  function loadWallpapers() {
+    onValue(ref(db, 'wallpapers'), (snapshot) => {
+      const data = snapshot.val() || {};
+      allWallpapers = Object.entries(data).map(([id, item]) => ({ id, ...item }));
+      renderWallpapers();
+      updateStats();
+    });
+  }
+
+  function loadPayments() {
+    onValue(ref(db, 'payments'), (snapshot) => {
+      const data = snapshot.val() || {};
+      allPayments = Object.entries(data).map(([id, item]) => ({ id, ...item }));
+      renderPayments();
+      updateStats();
+    });
+  }
+
+  // ===== RENDER WALLPAPERS =====
+  function renderWallpapers() {
+    const search = document.getElementById('searchInput').value.toLowerCase().trim();
+    let filtered = allWallpapers.filter(item => {
+      return (item.title && item.title.toLowerCase().includes(search)) ||
+             (item.tag && item.tag.toLowerCase().includes(search));
+    });
+
+    const sortSelect = document.getElementById('sortSelect');
+    switch(sortSelect.value) {
+      case 'oldest': filtered.sort((a,b) => (a.createdAt || 0) - (b.createdAt || 0)); break;
+      case 'downloads': filtered.sort((a,b) => (b.downloads || 0) - (a.downloads || 0)); break;
+      default: filtered.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }
+
+    const grid = document.getElementById('wallpaperGrid');
+    if (!filtered.length) {
+      grid.innerHTML = '<div class="empty-state"><i class="fas fa-image"></i> No wallpapers found.</div>';
+      return;
+    }
+
+    grid.innerHTML = filtered.map(item => {
+      const checked = selectedIds.has(item.id) ? 'checked' : '';
+      const isLive = item.isLive === true || item.imageUrl?.endsWith('.mp4');
+      const categoryLabel = item.category === 'trending' ? '🔥 Trending' : '📱 Latest';
+      const premiumLabel = item.isPremium ? '👑 Premium' : 'Free';
+      const premiumClass = item.isPremium ? 'premium' : 'free';
+
+      return `
+        <div class="wallpaper-item" data-id="${item.id}">
+          <div class="checkbox-wrap">
+            <input type="checkbox" class="item-checkbox" data-id="${item.id}" ${checked} />
+          </div>
+          <div class="media-wrap" onclick="window.previewAsset('${item.imageUrl}', ${isLive})">
+            ${isLive 
+              ? `<video src="${item.imageUrl}" muted autoplay loop playsinline></video>`
+              : `<img src="${item.imageUrl}" alt="${item.title}" loading="lazy" />`
+            }
+          </div>
+          <div class="info">
+            <div class="title">${item.title || 'Untitled'}</div>
+            <div class="meta">
+              <span class="tag">${item.tag || 'Untagged'}</span>
+              <span class="category">${categoryLabel}</span>
+              <span class="${premiumClass}">${premiumLabel}</span>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="edit-btn" onclick="window.openEdit('${item.id}')"><i class="fas fa-pen"></i> Edit</button>
+            <button class="delete-btn" onclick="window.deleteSingle('${item.id}')"><i class="fas fa-trash"></i> Delete</button>
+          </div>
         </div>
-      ` : ''}
-      <div class="overlay-info">
-        <div class="title">${item.title || 'Untitled'}</div>
-        <div class="tag">${item.tag || 'Untagged'}</div>
-      </div>
-    </div>
-  `;
-}
+      `;
+    }).join('');
 
-function renderGrids() {
-  const entries = Object.entries(allData).reverse();
-  let trendingHtml = '', latestHtml = '';
-
-  entries.forEach(([id, item]) => {
-    const html = createCardMarkup(item, id);
-    if (item.category === 'trending') trendingHtml += html;
-    else latestHtml += html;
-  });
-
-  document.getElementById('trendingGrid').innerHTML = trendingHtml || '<div class="empty-state">No trending items.</div>';
-  document.getElementById('latestGrid').innerHTML = latestHtml || '<div class="empty-state">No items found.</div>';
-}
-
-function renderFavorites() {
-  if (!currentUser) {
-    document.getElementById('favoritesGrid').innerHTML = '<div class="empty-state"><i class="fas fa-lock"></i> Sign in to view your favorites!</div>';
-    return;
-  }
-  const favs = Object.entries(userFavorites);
-  if(!favs.length) {
-    document.getElementById('favoritesGrid').innerHTML = '<div class="empty-state"><i class="fas fa-heart"></i> No favorites yet.</div>';
-    return;
-  }
-  document.getElementById('favoritesGrid').innerHTML = favs.map(([id, item]) => createCardMarkup(item, id)).join('');
-}
-
-// ===== SEARCH =====
-document.getElementById('popupSearchInput').addEventListener('input', function() {
-  const query = this.value.toLowerCase().trim();
-  const grid = document.getElementById('searchResultGrid');
-  if(!query) {
-    grid.innerHTML = '<div class="empty-state"><i class="fas fa-search"></i> Type something...</div>';
-    return;
-  }
-  const match = Object.entries(allData).filter(([id, item]) => {
-    return (item.title && item.title.toLowerCase().includes(query)) ||
-           (item.tag && item.tag.toLowerCase().includes(query));
-  });
-  if(!match.length) {
-    grid.innerHTML = '<div class="empty-state"><i class="fas fa-sad-tear"></i> No wallpapers found.</div>';
-    return;
-  }
-  grid.innerHTML = match.map(([id, item]) => createCardMarkup(item, id)).join('');
-});
-
-// ===== MODAL =====
-function openModal(id, item) {
-  activeId = id;
-  activeItem = item;
-  activeUrl = item.imageUrl;
-  const isLive = item.imageUrl?.endsWith('.mp4') || item.isLive === true;
-  const isPremium = item.isPremium === true;
-
-  document.getElementById('modalTitle').textContent = item.title || 'Untitled';
-  document.getElementById('modalRes').textContent = item.resolution || '4K Ultra HD';
-  document.getElementById('modalTag').textContent = item.tag || 'Untagged';
-  document.getElementById('modalDownloads').innerHTML = `<i class="fas fa-download"></i> ${item.downloads || 0} downloads`;
-
-  const badge = document.getElementById('modalPremiumBadge');
-  badge.style.display = isPremium ? 'inline-block' : 'none';
-
-  const notice = document.getElementById('premiumUpgradeNotice');
-  const downloadBtn = document.getElementById('modalDownload');
-  
-  if (isPremium && (!currentUser || !currentUserData?.isPremium)) {
-    notice.style.display = 'block';
-    downloadBtn.disabled = true;
-    downloadBtn.innerHTML = '<i class="fas fa-lock"></i> Premium Only';
-  } else {
-    notice.style.display = 'none';
-    downloadBtn.disabled = false;
-    downloadBtn.innerHTML = '<i class="fas fa-download"></i> Download';
-  }
-
-  if(isLive) {
-    document.getElementById('modalImg').style.display = 'none';
-    const v = document.getElementById('modalVideo'); v.src = activeUrl; v.style.display = 'block'; v.play();
-  } else {
-    document.getElementById('modalVideo').style.display = 'none';
-    const img = document.getElementById('modalImg'); img.src = activeUrl; img.style.display = 'block';
-  }
-  document.getElementById('modalOverlay').classList.add('show');
-}
-
-document.addEventListener('click', function(e) {
-  const card = e.target.closest('.card');
-  if (!card) return;
-  const id = card.dataset.id;
-  const item = allData[id];
-  if (item) openModal(id, item);
-});
-
-document.getElementById('modalClose').addEventListener('click', () => {
-  document.getElementById('modalOverlay').classList.remove('show');
-  document.getElementById('modalVideo').pause();
-});
-
-// ===== UPGRADE BUTTON =====
-document.getElementById('modalUpgradeBtn').addEventListener('click', function() {
-  profileModal.classList.add('show');
-  document.getElementById('modalOverlay').classList.remove('show');
-});
-
-// ===== DOWNLOAD =====
-document.getElementById('modalDownload').addEventListener('click', function() {
-  if (!activeUrl) return;
-  if (activeItem?.isPremium && (!currentUser || !currentUserData?.isPremium)) {
-    showToast('👑 This is a Premium wallpaper. Upgrade to download!');
-    return;
-  }
-  
-  let fUrl = activeUrl.replace('/upload/', '/upload/fl_attachment/');
-  const a = document.createElement('a');
-  a.href = fUrl; a.target = '_blank'; a.download = 'SR_' + Date.now();
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  
-  if (activeId && allData[activeId]) {
-    const current = allData[activeId].downloads || 0;
-    set(ref(db, `wallpapers/${activeId}/downloads`), current + 1);
-    
-    if (currentUser) {
-      const uid = currentUser.uid;
-      const dlRef = ref(db, `downloads/${uid}/${activeId}`);
-      set(dlRef, { 
-        title: allData[activeId].title, 
-        downloadedAt: Date.now(),
-        imageUrl: allData[activeId].imageUrl
+    document.querySelectorAll('.item-checkbox').forEach(cb => {
+      cb.addEventListener('change', function() {
+        const id = this.dataset.id;
+        if (this.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        updateBatchBar();
       });
+    });
+
+    updateBatchBar();
+  }
+
+  function updateBatchBar() {
+    const count = selectedIds.size;
+    document.getElementById('selectedCount').textContent = count;
+    const bar = document.getElementById('batchDeleteBar');
+    if (count > 0) {
+      bar.classList.add('show');
+    } else {
+      bar.classList.remove('show');
     }
   }
-  showToast('📥 Download started!');
-});
 
-// ===== FAVORITE =====
-document.getElementById('modalFavorite').addEventListener('click', function() {
-  if (!currentUser) { showToast('🔑 Login required.'); return; }
-  if (!activeId || !allData[activeId]) return;
-  const item = allData[activeId];
-  const refPath = ref(db, `favorites/${currentUser.uid}/${activeId}`);
-  if(userFavorites[activeId]) {
-    remove(refPath).then(() => showToast('❤️ Removed from favorites'));
-  } else {
-    set(refPath, { imageUrl: item.imageUrl, title: item.title, resolution: item.resolution, tag: item.tag })
-      .then(() => showToast('❤️ Saved to favorites!'));
+  // ===== BATCH DELETE =====
+  document.getElementById('batchDeleteBtn').addEventListener('click', function() {
+    if (!selectedIds.size) return;
+    if (confirm(`Delete ${selectedIds.size} wallpapers permanently?`)) {
+      const count = selectedIds.size;
+      selectedIds.forEach(id => {
+        remove(ref(db, 'wallpapers/' + id));
+      });
+      selectedIds.clear();
+      updateBatchBar();
+      showToast(`🗑️ ${count} assets deleted.`);
+    }
+  });
+
+  document.getElementById('batchCancelBtn').addEventListener('click', function() {
+    selectedIds.clear();
+    document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = false);
+    updateBatchBar();
+  });
+
+  // ===== RENDER PAYMENTS =====
+  function renderPayments() {
+    const pending = allPayments.filter(p => p.status === 'pending');
+    const verified = allPayments.filter(p => p.status === 'verified');
+
+    const pendingContainer = document.getElementById('pendingPayments');
+    if (!pending.length) {
+      pendingContainer.innerHTML = '<div class="empty-state"><i class="fas fa-check-circle"></i> No pending payments</div>';
+    } else {
+      pendingContainer.innerHTML = pending.map(p => `
+        <div class="payment-item">
+          <div class="info">
+            <div class="name">${p.userName || 'Unknown'}</div>
+            <div class="details">${p.userEmail || 'No email'} · ৳${p.amount} · ${p.package}</div>
+            <div class="trx">📝 ${p.transactionId}</div>
+            <span class="uid-tag">🆔 ${p.userId?.substring(0, 12)}...</span>
+          </div>
+          <div>
+            <span class="status pending">⏳ Pending</span>
+          </div>
+          <div class="actions">
+            <button class="approve" onclick="window.approvePayment('${p.id}', '${p.userId}')">
+              <i class="fas fa-check"></i> Approve
+            </button>
+            <button class="reject" onclick="window.rejectPayment('${p.id}')">
+              <i class="fas fa-times"></i> Reject
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    const verifiedContainer = document.getElementById('verifiedPayments');
+    if (!verified.length) {
+      verifiedContainer.innerHTML = '<div class="empty-state"><i class="fas fa-history"></i> No verified payments</div>';
+    } else {
+      verifiedContainer.innerHTML = verified.map(p => `
+        <div class="payment-item" style="opacity:0.7;">
+          <div class="info">
+            <div class="name">${p.userName || 'Unknown'}</div>
+            <div class="details">৳${p.amount} · ${p.package}</div>
+            <div class="trx">${p.transactionId}</div>
+          </div>
+          <div>
+            <span class="status verified">✅ Verified</span>
+          </div>
+          <div style="font-size:0.6rem; color:#64748b;">
+            ${p.verifiedAt ? new Date(p.verifiedAt).toLocaleDateString() : ''}
+          </div>
+        </div>
+      `).join('');
+    }
   }
-});
 
-// ===== SHARE =====
-document.getElementById('modalShare').addEventListener('click', function() {
-  if (navigator.share) {
-    navigator.share({
-      title: document.getElementById('modalTitle').textContent,
-      text: 'Check out this wallpaper from SRWallpapers!',
-      url: activeUrl
-    }).catch(() => {});
-  } else {
-    navigator.clipboard.writeText(activeUrl).then(() => showToast('📋 Link copied!'));
+  // ===== UPDATE STATS =====
+  function updateStats() {
+    document.getElementById('totalCount').textContent = allWallpapers.length;
+    
+    const pending = allPayments.filter(p => p.status === 'pending');
+    document.getElementById('pendingCount').textContent = pending.length;
+    
+    const verified = allPayments.filter(p => p.status === 'verified');
+    const totalRevenue = verified.reduce((sum, p) => sum + (p.amount || 0), 0);
+    document.getElementById('totalRevenue').textContent = '৳' + totalRevenue;
+
+    onValue(ref(db, 'users'), (snapshot) => {
+      const users = snapshot.val() || {};
+      const premiumUsers = Object.values(users).filter(u => u.isPremium === true);
+      document.getElementById('premiumUserCount').textContent = premiumUsers.length;
+    });
   }
-});
 
-// ===== GET BADGES =====
-function getBadges(downloadCount) {
-  const badges = [];
-  if (downloadCount >= 5) badges.push({ icon: '🥉', label: 'Bronze' });
-  if (downloadCount >= 20) badges.push({ icon: '🥈', label: 'Silver' });
-  if (downloadCount >= 50) badges.push({ icon: '🥇', label: 'Gold' });
-  if (downloadCount >= 100) badges.push({ icon: '💎', label: 'Diamond' });
-  if (downloadCount >= 500) badges.push({ icon: '👑', label: 'Royal' });
-  return badges;
+  // ===== UPLOAD LOGIC =====
+  document.getElementById('uploadBtn').addEventListener('click', async function() {
+    const fileInput = document.getElementById('fileInput');
+    const title = document.getElementById('titleInput').value.trim() || "Premium Asset";
+    const category = document.getElementById('categorySelect').value;
+    const tag = document.getElementById('tagSelect').value;
+    const resolution = document.getElementById('resolutionInput').value.trim() || "4K Ultra HD";
+    const isPremium = document.getElementById('premiumSelect').value === "true";
+    const statusText = document.getElementById('uploadStatus');
+
+    if (!fileInput.files.length) {
+      statusText.innerText = "❌ Select a file!";
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const isLive = file.type.startsWith('video/');
+
+    statusText.innerHTML = "⏳ Uploading...";
+    this.disabled = true;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+    try {
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await response.json();
+      
+      if (data.secure_url) {
+        const wallpapersRef = ref(db, 'wallpapers');
+        const newRef = push(wallpapersRef);
+        await set(newRef, {
+          title: title,
+          imageUrl: data.secure_url,
+          category: category,
+          tag: tag,
+          resolution: resolution,
+          isPremium: isPremium,
+          isLive: isLive,
+          downloads: 0,
+          createdAt: Date.now()
+        });
+        statusText.innerHTML = "✅ Uploaded successfully! 🎉";
+        fileInput.value = "";
+        document.getElementById('titleInput').value = "";
+      } else {
+        statusText.innerHTML = "❌ Upload failed!";
+      }
+    } catch (error) {
+      statusText.innerHTML = "❌ Error: " + error.message;
+      console.error("Upload Error:", error);
+    } finally {
+      this.disabled = false;
+    }
+  });
+
+  // ===== SEARCH & SORT LISTENERS =====
+  document.getElementById('searchInput').addEventListener('input', renderWallpapers);
+  document.getElementById('sortSelect').addEventListener('change', renderWallpapers);
+
+  // ===== MODAL CANCEL =====
+  document.getElementById('editCancelBtn').addEventListener('click', function() {
+    document.getElementById('editModal').classList.remove('show');
+  });
+
+  // ===== SAVE EDITED DATA =====
+  document.getElementById('editSaveBtn').addEventListener('click', async function() {
+    if (!editingId) return;
+    const updates = {
+      title: document.getElementById('editTitle').value.trim() || 'Untitled',
+      category: document.getElementById('editCategory').value,
+      tag: document.getElementById('editTag').value,
+      resolution: document.getElementById('editResolution').value.trim() || '4K Ultra HD',
+      isPremium: document.getElementById('editPremium').value === 'true',
+      isLive: document.getElementById('editIsLive').value === 'true'
+    };
+    try {
+      await update(ref(db, 'wallpapers/' + editingId), updates);
+      document.getElementById('editModal').classList.remove('show');
+      showToast('✅ Updated successfully!');
+    } catch (err) {
+      showToast('❌ Error: ' + err.message);
+    }
+  });
 }
 
-// ===== PAYMENT SYSTEM =====
-window.selectMethod = function(method) {
-  selectedMethod = method;
-  document.querySelectorAll('.payment-method-item').forEach(el => el.classList.remove('selected'));
-  document.getElementById(method + 'Method').classList.add('selected');
-  document.getElementById('selectedMethodDisplay').textContent = method.toUpperCase();
+// ============================================================
+// GLOBAL FUNCTIONS (Exposed to window for HTML inline clicks)
+// ============================================================
+window.previewAsset = function(url, isVideo) {
+  const container = document.getElementById('previewContainer');
+  if (isVideo) {
+    container.innerHTML = `<video src="${url}" autoplay loop controls style="max-width:90%; max-height:90%; border-radius:16px;"></video>`;
+  } else {
+    container.innerHTML = `<img src="${url}" alt="Preview" style="max-width:90%; max-height:90%; border-radius:16px; object-fit:contain;" />`;
+  }
+  document.getElementById('previewModal').classList.add('show');
 };
 
-window.submitPayment = async function() {
-  const transactionId = document.getElementById('transactionId').value.trim();
-  const phoneNumber = document.getElementById('senderPhone').value.trim();
-  
-  if (!transactionId || !phoneNumber) {
-    showToast('❌ Please fill all fields');
-    return;
+window.openEdit = function(id) {
+  // We look into the global allWallpapers state
+  const item = allWallpapers.find(w => w.id === id);
+  if (!item) return;
+  editingId = id;
+  document.getElementById('editTitle').value = item.title || '';
+  document.getElementById('editCategory').value = item.category || 'latest';
+  document.getElementById('editTag').value = item.tag || 'Nature';
+  document.getElementById('editResolution').value = item.resolution || '4K Ultra HD';
+  document.getElementById('editPremium').value = item.isPremium ? 'true' : 'false';
+  document.getElementById('editIsLive').value = (item.isLive === true || item.imageUrl?.endsWith('.mp4')) ? 'true' : 'false';
+  document.getElementById('editModal').classList.add('show');
+};
+
+window.deleteSingle = function(id) {
+  if (confirm('Delete this wallpaper permanently?')) {
+    remove(ref(db, 'wallpapers/' + id));
+    if (selectedIds.has(id)) selectedIds.delete(id);
+    showToast('🗑️ Asset deleted.');
   }
-  
-  const user = auth.currentUser;
-  if (!user) {
-    showToast('🔑 Please login first');
-    return;
-  }
-  
-  const amount = 100;
-  
-  const paymentData = {
-    userId: user.uid,
-    userEmail: user.email,
-    userName: user.displayName || 'Unknown',
-    amount: amount,
-    transactionId: transactionId,
-    phoneNumber: phoneNumber,
-    method: selectedMethod,
-    status: 'pending',
-    package: 'yearly',
-    createdAt: Date.now()
-  };
-  
+};
+
+window.approvePayment = async function(paymentId, userId) {
+  if (!confirm('Approve this payment?')) return;
   try {
-    const paymentRef = push(ref(db, 'payments'));
-    await set(paymentRef, paymentData);
-    
-    showToast('✅ Payment submitted! Admin will verify within 24 hours.');
-    
-    document.getElementById('transactionId').value = '';
-    document.getElementById('senderPhone').value = '';
-    
-    const tgMessage = `📨 *New Payment Request!*\n\n👤 User: ${user.displayName}\n📧 Email: ${user.email}\n🆔 User ID: \`${user.uid}\`\n📦 Package: Yearly\n💰 Amount: ৳${amount}\n📱 Method: ${selectedMethod.toUpperCase()}\n🔑 TrxID: ${transactionId}\n📞 Phone: ${phoneNumber}`;
-    const tgUrl = `https://t.me/sourov_ray?text=${encodeURIComponent(tgMessage)}`;
-    
-    document.getElementById('paymentStatus').innerHTML = `
-      <div style="margin-top:12px; padding:14px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2); border-radius:14px;">
-        <p style="color:#10b981; font-size:0.9rem; font-weight:600;">✅ Payment submitted successfully!</p>
-        <p style="color:#94a3b8; font-size:0.75rem; margin-top:6px;">
-          📨 Notify admin on Telegram: 
-          <a href="${tgUrl}" target="_blank" style="color:#0088cc; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
-            <i class="fab fa-telegram-plane"></i> Send Message
-          </a>
-        </p>
-        <div style="margin-top:8px; padding:8px; background:rgba(255,255,255,0.03); border-radius:8px;">
-          <span style="font-size:0.65rem; color:#64748b;">Your User ID:</span>
-          <span style="font-size:0.7rem; color:#60a5fa; font-family:monospace; font-weight:600;">${user.uid}</span>
-          <button onclick="navigator.clipboard.writeText('${user.uid}')" style="background:rgba(255,255,255,0.05); border:none; color:#94a3b8; padding:2px 8px; border-radius:6px; cursor:pointer; font-size:0.6rem;">
-            <i class="fas fa-copy"></i> Copy
-          </button>
-        </div>
-      </div>
-    `;
-    
+    await update(ref(db, `payments/${paymentId}`), {
+      status: 'verified',
+      verifiedAt: Date.now()
+    });
+    await update(ref(db, `users/${userId}`), {
+      isPremium: true,
+      premiumSince: Date.now()
+    });
+    showToast('✅ Payment approved! User is now Premium.');
   } catch (error) {
     showToast('❌ Error: ' + error.message);
   }
 };
 
-// ===== PROFILE UI =====
-function renderProfileUI(user, userData) {
-  const container = document.getElementById('profileAuthContainer');
-  if (user) {
-    const favCount = Object.keys(userFavorites).length;
-    const dlCount = Object.keys(userDownloads).length;
-    const badges = getBadges(dlCount);
-    const isPremium = userData?.isPremium === true;
-    
-    const recentDls = Object.entries(userDownloads).slice(-5).reverse();
-    
-    container.innerHTML = `
-      <div class="profile-cover"></div>
-      <div class="profile-avatar-wrap">
-        <img src="${user.photoURL || 'https://ui-avatars.com/api/?name=User'}" alt="User">
-        ${isPremium ? '<span class="premium-badge-profile"><i class="fas fa-gem"></i> Premium</span>' : '<span class="free-badge-profile">Free</span>'}
-        <div class="online-dot"></div>
-      </div>
-      <h2 style="font-size:1.3rem; font-weight:800; margin-bottom:2px; letter-spacing:-0.3px;">${user.displayName}</h2>
-      <p style="color:#64748b; font-size:0.75rem; font-weight:500;">${user.email}</p>
-      
-      ${isPremium ? 
-        '<div class="bio-text" style="color:#f59e0b;">👑 Premium Member · Unlimited Downloads</div>' : 
-        '<div class="bio-text">"Collecting the finest wallpapers from around the universe."</div>'
-      }
-
-      <div class="badge-container">
-        ${badges.length ? badges.map(b => `<span class="badge-item"><i class="fas fa-star"></i> ${b.icon} ${b.label}</span>`).join('') : '<span class="badge-item" style="color:#64748b;"><i class="fas fa-star"></i> Start collecting!</span>'}
-      </div>
-
-      <div class="user-meta-grid">
-        <div class="meta-box"><span>Favorites</span><strong>${favCount}</strong></div>
-        <div class="meta-box"><span>Downloads</span><strong>${dlCount}</strong></div>
-        <div class="meta-box"><span>Status</span><strong style="color:#10b981"><i class="fas fa-bolt"></i> Live</strong></div>
-      </div>
-
-      <div class="user-id-display">
-        <span>🆔 Your User ID</span>
-        <span class="uid">${user.uid.substring(0, 12)}...</span>
-        <button onclick="navigator.clipboard.writeText('${user.uid}')" style="background:rgba(255,255,255,0.05); border:none; color:#94a3b8; padding:2px 10px; border-radius:6px; cursor:pointer; font-size:0.6rem;">
-          <i class="fas fa-copy"></i> Copy
-        </button>
-      </div>
-
-      ${!isPremium ? `
-        <div class="upgrade-box">
-          <h3 style="font-size:1.1rem; color:#f59e0b;">👑 Premium Membership</h3>
-          <div class="price-big">৳100 <small>/ Yearly</small></div>
-          
-          <ul class="feature-list">
-            <li><i class="fas fa-check-circle"></i> Unlimited 4K Wallpaper Downloads</li>
-            <li><i class="fas fa-check-circle"></i> Exclusive Premium Collection</li>
-            <li><i class="fas fa-check-circle"></i> Ad-Free Experience</li>
-            <li><i class="fas fa-check-circle"></i> Priority Support</li>
-          </ul>
-
-          <p style="font-size:0.7rem; color:#94a3b8; margin-bottom:8px;">Select your payment method:</p>
-          
-          <div class="payment-methods-grid">
-            <div class="payment-method-item selected" id="bkashMethod" onclick="selectMethod('bkash')">
-              <i class="fas fa-mobile-alt"></i>
-              <div class="name">bKash</div>
-              <div class="number">01789538134</div>
-            </div>
-            <div class="payment-method-item" id="nagadMethod" onclick="selectMethod('nagad')">
-              <i class="fas fa-mobile-alt"></i>
-              <div class="name">Nagad</div>
-              <div class="number">01789538134</div>
-            </div>
-          </div>
-
-          <p style="font-size:0.7rem; color:#94a3b8; text-align:left; margin:4px 0;">
-            <i class="fas fa-info-circle"></i> Send exactly <strong>100 Tk</strong> to <strong id="selectedMethodDisplay">BKASH</strong>
-          </p>
-          
-          <input type="text" id="transactionId" class="payment-form-input" placeholder="Transaction ID (e.g., bKashTrx123)" />
-          <input type="text" id="senderPhone" class="payment-form-input" placeholder="Your bKash/Nagad Number" />
-          <button onclick="submitPayment()" class="btn btn-success" style="width:100%;">
-            <i class="fas fa-check-circle"></i> Continue & Verify Payment
-          </button>
-          <div id="paymentStatus"></div>
-        </div>
-
-        <div class="help-center-box">
-          <div class="help-title"><i class="fas fa-headset"></i> Help Center</div>
-          <div class="help-desc">
-            Having issues with payment? 
-            <a href="https://t.me/sourov_ray" target="_blank">
-              <i class="fab fa-telegram-plane"></i> Live Chat
-            </a>
-            <br />
-            <span style="font-size:0.65rem; color:#64748b;">
-              Include your User ID: <strong style="color:#60a5fa; font-family:monospace;">${user.uid.substring(0, 12)}...</strong>
-            </span>
-          </div>
-        </div>
-      ` : ''}
-
-      ${recentDls.length ? `
-        <div class="profile-actions-title">📥 Recent Downloads</div>
-        <div class="download-history">
-          ${recentDls.map(([id, item]) => `
-            <div class="download-history-item">
-              <span class="dl-title">${item.title || 'Untitled'}</span>
-              <span class="dl-time">${new Date(item.downloadedAt).toLocaleDateString()}</span>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
-
-      <div class="profile-actions-title">⚡ Quick Actions</div>
-      <div class="profile-actions-list">
-        <button class="action-btn-mini" id="pActionTheme"><span><i class="fas fa-adjust"></i> Toggle Theme</span><i class="fas fa-chevron-right" style="font-size:0.7rem; color:#64748b;"></i></button>
-        <button class="action-btn-mini" id="pActionClearFavs"><span><i class="fas fa-trash-alt"></i> Clear Favorites</span><i class="fas fa-chevron-right" style="font-size:0.7rem; color:#64748b;"></i></button>
-        <button class="action-btn-mini" id="pActionClearDls"><span><i class="fas fa-eraser"></i> Clear History</span><i class="fas fa-chevron-right" style="font-size:0.7rem; color:#64748b;"></i></button>
-        <button class="action-btn-mini" onclick="window.open('https://t.me/sourov_ray', '_blank')"><span><i class="fas fa-headset"></i> Help Center</span><i class="fas fa-chevron-right" style="font-size:0.7rem; color:#64748b;"></i></button>
-      </div>
-
-      <button class="btn btn-secondary" id="logoutActionBtn" style="color:#ef4444; background:rgba(239,68,68,0.06); width:100%; border:1px solid rgba(239,68,68,0.1); border-radius:18px;">
-        <i class="fas fa-sign-out-alt"></i> Logout
-      </button>
-    `;
-
-    window.selectMethod = selectMethod;
-    window.submitPayment = submitPayment;
-
-    document.getElementById('pActionTheme').addEventListener('click', toggleThemeMode);
-    document.getElementById('pActionClearFavs').addEventListener('click', function() {
-      if (confirm('Remove all favorites?')) {
-        set(ref(db, `favorites/${user.uid}`), null).then(() => showToast('🗑️ Favorites cleared!'));
-      }
+window.rejectPayment = async function(paymentId) {
+  if (!confirm('Reject this payment?')) return;
+  try {
+    await update(ref(db, `payments/${paymentId}`), {
+      status: 'failed'
     });
-    document.getElementById('pActionClearDls').addEventListener('click', function() {
-      if (confirm('Clear download history?')) {
-        set(ref(db, `downloads/${user.uid}`), null).then(() => showToast('🗑️ History cleared!'));
-      }
-    });
-    document.getElementById('logoutActionBtn').addEventListener('click', () => {
-      signOut(auth).then(() => { profileModal.classList.remove('show'); showToast('👋 Logged out'); });
-    });
-  } else {
-    container.innerHTML = `
-      <div style="padding:20px 0">
-        <i class="fas fa-user-shield" style="font-size:3.2rem; color:#2563eb; margin-bottom:15px; display:block"></i>
-        <h3 style="font-size:1.25rem; font-weight:800; margin-bottom:8px; letter-spacing:-0.3px;">Welcome Back!</h3>
-        <p style="color:#94a3b8; font-size:0.85rem; margin-bottom:24px; line-height:1.5;">Sign in to sync your favorites & track downloads.</p>
-        <button class="btn btn-primary" id="loginActionBtn" style="width:100%; height:48px; border-radius:18px; font-size:0.9rem;">
-          <i class="fab fa-google"></i> Continue with Google
-        </button>
-      </div>
-    `;
-    document.getElementById('loginActionBtn').addEventListener('click', () => {
-      signInWithPopup(auth, provider).then(() => profileModal.classList.remove('show')).catch(e => showToast('❌ ' + e.message));
-    });
+    showToast('❌ Payment rejected.');
+  } catch (error) {
+    showToast('❌ Error: ' + error.message);
   }
-}
+};
 
-// ===== THEME =====
-function toggleThemeMode() {
-  document.body.classList.toggle('light');
-  const icon = document.getElementById('themeToggle');
-  icon.className = document.body.classList.contains('light') ? 'fas fa-sun' : 'fas fa-moon';
-}
-document.getElementById('themeToggle').addEventListener('click', toggleThemeMode);
-
-// ===== AUTH STATE =====
-onAuthStateChanged(auth, (user) => {
-  currentUser = user;
-  if (user) {
-    onValue(ref(db, `users/${user.uid}`), (snapshot) => {
-      currentUserData = snapshot.val() || { isPremium: false };
-      renderProfileUI(user, currentUserData);
-    });
-    
-    onValue(ref(db, `favorites/${user.uid}`), (s) => {
-      userFavorites = s.val() || {};
-      renderFavorites();
-    });
-    onValue(ref(db, `downloads/${user.uid}`), (s) => {
-      userDownloads = s.val() || {};
-      renderProfileUI(user, currentUserData);
-    });
-  } else {
-    currentUserData = null;
-    userFavorites = {};
-    userDownloads = {};
-    renderProfileUI(null, null);
-    renderFavorites();
-  }
-});
-
-// ===== TOAST =====
-function showToast(m) {
+// ===== TOAST GLOBAL FUNCTION =====
+function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = m;
+  if (!t) return;
+  t.textContent = msg;
   t.classList.add('show');
   clearTimeout(t._h);
   t._h = setTimeout(() => t.classList.remove('show'), 3000);
 }
-window.showToast = showToast;
 
-// ===== LOAD DATA =====
-onValue(ref(db, 'wallpapers'), (s) => {
-  allData = s.val() || {};
-  renderGrids();
-});
-
-// ===== KEYBOARD SHORTCUTS =====
+// ===== GLOBAL KEYBOARD SHORTCUTS =====
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    document.getElementById('modalOverlay').classList.remove('show');
-    document.getElementById('modalVideo').pause();
-    searchPopup.classList.remove('show');
-    profileModal.classList.remove('show');
-  }
-  if (e.ctrlKey && e.key === 'k') {
-    e.preventDefault();
-    searchPopup.classList.toggle('show');
-    if (searchPopup.classList.contains('show')) document.getElementById('popupSearchInput').focus();
+    document.getElementById('editModal').classList.remove('show');
+    document.getElementById('previewModal').classList.remove('show');
+    const container = document.getElementById('previewContainer');
+    if(container) {
+      const video = container.querySelector('video');
+      if (video) video.pause();
+    }
   }
 });
